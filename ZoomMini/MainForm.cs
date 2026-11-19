@@ -294,6 +294,7 @@ namespace ZoomMini
                                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button));
 
                             bool? windowMicOn = null;
+                            int windowMicScore = 0;
                             bool? windowCameraOn = null;
 
                             foreach (AutomationElement button in buttons)
@@ -303,18 +304,55 @@ namespace ZoomMini
 
                                 string value = name.Trim().ToLowerInvariant();
 
-                                // Ignore host controls for muting other participants.
+                                // Read only the control for the local user's own microphone.
+                                // Prefer explicit "my audio" labels so participant/context-menu
+                                // controls cannot accidentally determine the local mic state.
                                 bool isMuteAllControl = value.Contains("mute all") ||
                                                         value.Contains("mute participants");
-                                // Check "unmute" before "mute" because the former contains the latter.
-                                if (windowMicOn == null && !isMuteAllControl)
+                                if (!isMuteAllControl)
                                 {
-                                    if (value.Contains("unmute") || value.Contains("enable audio"))
-                                        windowMicOn = false;
-                                    else if (value.Contains("mute") || value.Contains("disable audio"))
-                                        windowMicOn = true;
+                                    int micScore = 0;
+                                    bool? candidateMicOn = null;
+
+                                    if (value.Contains("unmute my audio") ||
+                                        value.Contains("unmute microphone") ||
+                                        value.Contains("unmute mic") ||
+                                        value.Contains("enable my audio") ||
+                                        value.Contains("turn on my microphone"))
+                                    {
+                                        candidateMicOn = false; // The available action is Unmute: currently muted.
+                                        micScore = 3;
+                                    }
+                                    else if (value.Contains("mute my audio") ||
+                                             value.Contains("mute microphone") ||
+                                             value.Contains("mute mic") ||
+                                             value.Contains("disable my audio") ||
+                                             value.Contains("turn off my microphone"))
+                                    {
+                                        candidateMicOn = true; // The available action is Mute: currently unmuted.
+                                        micScore = 3;
+                                    }
+                                    else if (value == "unmute" || value == "unmute audio" ||
+                                             value == "enable audio")
+                                    {
+                                        candidateMicOn = false;
+                                        micScore = 2;
+                                    }
+                                    else if (value == "mute" || value == "mute audio" ||
+                                             value == "disable audio")
+                                    {
+                                        candidateMicOn = true;
+                                        micScore = 2;
+                                    }
+
+                                    if (candidateMicOn.HasValue && micScore > windowMicScore)
+                                    {
+                                        windowMicOn = candidateMicOn;
+                                        windowMicScore = micScore;
+                                    }
                                 }
 
+                                // Camera detection is unchanged because it is already working correctly.
                                 if (windowCameraOn == null)
                                 {
                                     if (value.Contains("stop video") || value.Contains("turn off video") ||
