@@ -155,13 +155,13 @@ namespace ZoomMini
         private void HelpLabel_Click(object sender, EventArgs e)
         {
             string helpText =
-                "CÁCH BẬT PHÍM TẮT ZOOM\\n\\n" +
-                "1. Mở Zoom Workplace và đăng nhập.\\n" +
-                "2. Nhấn ảnh đại diện hoặc biểu tượng bánh răng Settings.\\n" +
-                "3. Chọn Settings → Keyboard Shortcuts.\\n" +
-                "4. Tìm các phím tắt Mute/Unmute My Audio (Alt + A), Mute All (Alt + M) và Start/Stop Video (Alt + V).\\n" +
-                "5. Đánh dấu tùy chọn Global Shortcut cho từng phím tắt nếu Zoom hiển thị tùy chọn này.\\n\\n" +
-                "Lưu ý: Mute All yêu cầu quyền Host/Co-host. Tên mục có thể khác đôi chút tùy phiên bản Zoom.\\n\\n" +
+                "CÁCH BẬT PHÍM TẮT ZOOM\n\n" +
+                "1. Mở Zoom Workplace và đăng nhập.\n" +
+                "2. Nhấn ảnh đại diện hoặc biểu tượng bánh răng Settings.\n" +
+                "3. Chọn Settings → Keyboard Shortcuts.\n" +
+                "4. Tìm các phím tắt Mute/Unmute My Audio (Alt + A), Mute All (Alt + M) và Start/Stop Video (Alt + V).\n" +
+                "5. Đánh dấu tùy chọn Global Shortcut cho từng phím tắt nếu Zoom hiển thị tùy chọn này.\n\n" +
+                "Lưu ý: Mute All yêu cầu quyền Host/Co-host. Tên mục có thể khác đôi chút tùy phiên bản Zoom.\n\n" +
                 "Liên hệ: tuanluongpham@gmail.com";
 
             MessageBox.Show(this, helpText, "Help - Công cụ Zoom",
