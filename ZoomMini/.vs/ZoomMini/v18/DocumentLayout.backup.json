@@ -3,12 +3,8 @@
   "WorkspaceRootPath": "E:\\ZoomControl\\ZoomTools\\ZoomMini\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A74B4F62-7F37-4C4A-9E8D-1B4D3B8C5A21}|ZoomMini.csproj|E:\\ZoomControl\\ZoomTools\\ZoomMini\\mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{A74B4F62-7F37-4C4A-9E8D-1B4D3B8C5A21}|ZoomMini.csproj|e:\\zoomcontrol\\zoomtools\\zoommini\\mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{A74B4F62-7F37-4C4A-9E8D-1B4D3B8C5A21}|ZoomMini.csproj|solutionrelative:mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A74B4F62-7F37-4C4A-9E8D-1B4D3B8C5A21}|ZoomMini.csproj|e:\\zoomcontrol\\zoomtools\\zoommini\\mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
-      "RelativeMoniker": "D:0:0:{A74B4F62-7F37-4C4A-9E8D-1B4D3B8C5A21}|ZoomMini.csproj|solutionrelative:mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,21 +14,8 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 0,
           "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "MainForm.cs [Design]",
-              "DocumentMoniker": "E:\\ZoomControl\\ZoomTools\\ZoomMini\\MainForm.cs",
-              "RelativeDocumentMoniker": "MainForm.cs",
-              "ToolTip": "E:\\ZoomControl\\ZoomTools\\ZoomMini\\MainForm.cs [Design]",
-              "RelativeToolTip": "MainForm.cs [Design]",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-11-19T02:40:22.109Z",
-              "EditorCaption": " [Design]",
-              "OwnerCaption": "%2"
-            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -41,9 +24,9 @@
               "RelativeDocumentMoniker": "MainForm.cs",
               "ToolTip": "E:\\ZoomControl\\ZoomTools\\ZoomMini\\MainForm.cs",
               "RelativeToolTip": "MainForm.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAqwBMAAAAsAAAAAAAAAA==",
+              "ViewState": "AgIAADsAAAAAAAAAAAAswEsAAAAMAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-11-19T02:32:14.23Z",
+              "WhenOpened": "2026-11-19T02:52:16.097Z",
               "EditorCaption": "",
               "OwnerCaption": "%2"
             }

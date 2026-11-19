@@ -72,7 +72,8 @@ namespace ZoomMini
             _closeLabel = CreateWindowLabel("×", 204, 1);
             _minimizeLabel.Click += delegate { WindowState = FormWindowState.Minimized; };
             _closeLabel.Click += delegate { Close(); };
-            topPanel.Controls.Add(appName);\n            topPanel.Controls.Add(helpLabel);
+            topPanel.Controls.Add(appName);
+            topPanel.Controls.Add(helpLabel);
             topPanel.Controls.Add(_minimizeLabel);
             topPanel.Controls.Add(_closeLabel);
             topPanel.MouseDown += DragWindow;
