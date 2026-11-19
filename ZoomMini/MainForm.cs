@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -16,35 +17,65 @@ namespace ZoomMini
         private readonly Button _micButton;
         private readonly Button _muteAllButton;
         private readonly Button _cameraButton;
-        private readonly Label _noticeLabel;
-        private readonly Timer _noticeTimer;
+        private readonly Label _statusLabel;
+        private readonly Label _minimizeLabel;
+        private readonly Label _closeLabel;
+        private readonly Timer _zoomCheckTimer;
 
-        // These are local assumptions based on clicks in this app, not live Zoom states.
         private bool _micOn;
         private bool _cameraOn;
         private bool _muteAllPressed;
+        private bool _zoomRunning;
 
-        private static readonly Color WindowColor = Color.FromArgb(48, 48, 48);
-        private static readonly Color OnColor = Color.FromArgb(22, 134, 91);
-        private static readonly Color OffColor = Color.FromArgb(217, 83, 79);
-        private static readonly Color LinkColor = Color.FromArgb(100, 181, 246);
+        private static readonly Color BackgroundColor = Color.FromArgb(8, 12, 20);
+        private static readonly Color PanelColor = Color.FromArgb(13, 25, 42);
+        private static readonly Color ZoomBlue = Color.FromArgb(14, 113, 235);
+        private static readonly Color ButtonOff = Color.FromArgb(19, 31, 48);
+        private static readonly Color TextColor = Color.White;
+        private static readonly Color MutedText = Color.FromArgb(170, 190, 215);
+        private static readonly Color DisabledColor = Color.FromArgb(45, 52, 62);
 
         public MainForm()
         {
             Text = "Công cụ Zoom";
-            ClientSize = new Size(236, 158);
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
-            MinimizeBox = true;
+            ClientSize = new Size(228, 132);
+            FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.CenterScreen;
             TopMost = true;
-            ShowIcon = false;
-            BackColor = WindowColor;
+            ShowInTaskbar = true;
+            BackColor = BackgroundColor;
             Font = new Font("Segoe UI", 9F, FontStyle.Regular);
 
-            _micButton = CreateActionButton("MIC", 8, 8, 104, 38);
-            _muteAllButton = CreateActionButton("MUTE ALL", 120, 8, 108, 38);
-            _cameraButton = CreateActionButton("CAMERA", 8, 51, 220, 38);
+            // Small custom top strip: no Windows title bar.
+            Panel topPanel = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(228, 25),
+                BackColor = PanelColor
+            };
+            Label appName = new Label
+            {
+                Text = "ZOOM CONTROL",
+                Location = new Point(9, 3),
+                Size = new Size(130, 19),
+                ForeColor = MutedText,
+                BackColor = PanelColor,
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            _minimizeLabel = CreateWindowLabel("—", 181, 2);
+            _closeLabel = CreateWindowLabel("×", 204, 1);
+            _minimizeLabel.Click += delegate { WindowState = FormWindowState.Minimized; };
+            _closeLabel.Click += delegate { Close(); };
+            topPanel.Controls.Add(appName);
+            topPanel.Controls.Add(_minimizeLabel);
+            topPanel.Controls.Add(_closeLabel);
+            topPanel.MouseDown += DragWindow;
+            appName.MouseDown += DragWindow;
+
+            _micButton = CreateActionButton("MIC", 8, 32, 103, 34);
+            _muteAllButton = CreateActionButton("MUTE ALL", 117, 32, 103, 34);
+            _cameraButton = CreateActionButton("CAMERA", 8, 72, 212, 30);
 
             _micButton.Click += MicButton_Click;
             _cameraButton.Click += CameraButton_Click;
@@ -52,42 +83,49 @@ namespace ZoomMini
             _muteAllButton.MouseUp += MuteAllButton_MouseUp;
             _muteAllButton.MouseCaptureChanged += MuteAllButton_MouseCaptureChanged;
 
-            LinkLabel settingsLink = CreateLink("Cài đặt", 10, 98, 58);
-            LinkLabel helpLink = CreateLink("Help", 174, 98, 48);
-            settingsLink.LinkClicked += delegate { ShowNotice("Mục Cài đặt sẽ được bổ sung sau."); };
-            helpLink.LinkClicked += delegate
-            {
-                ShowNotice("Bật Global Shortcut trong Zoom để dùng phím tắt.");
-            };
-
-            _noticeLabel = new Label
+            _statusLabel = new Label
             {
                 AutoSize = false,
-                Location = new Point(9, 124),
-                Size = new Size(218, 22),
-                ForeColor = Color.Gainsboro,
-                BackColor = WindowColor,
-                Text = "Sẵn sàng",
+                Location = new Point(7, 106),
+                Size = new Size(214, 19),
+                ForeColor = MutedText,
+                BackColor = BackgroundColor,
+                Text = "Đang kiểm tra Zoom...",
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 8F, FontStyle.Regular)
+                Font = new Font("Segoe UI", 7.5F, FontStyle.Regular)
             };
 
+            Controls.Add(topPanel);
             Controls.Add(_micButton);
             Controls.Add(_muteAllButton);
             Controls.Add(_cameraButton);
-            Controls.Add(settingsLink);
-            Controls.Add(helpLink);
-            Controls.Add(_noticeLabel);
+            Controls.Add(_statusLabel);
 
-            _noticeTimer = new Timer { Interval = 2800 };
-            _noticeTimer.Tick += delegate
-            {
-                _noticeTimer.Stop();
-                _noticeLabel.Text = "Sẵn sàng";
-            };
+            _zoomCheckTimer = new Timer { Interval = 1000 };
+            _zoomCheckTimer.Tick += delegate { CheckZoomProcess(); };
+            CheckZoomProcess();
+            _zoomCheckTimer.Start();
 
             UpdateToggleButtons();
             UpdateMuteAllButton();
+        }
+
+        private static Label CreateWindowLabel(string text, int x, int y)
+        {
+            Label label = new Label
+            {
+                Text = text,
+                Location = new Point(x, y),
+                Size = new Size(20, 20),
+                ForeColor = TextColor,
+                BackColor = PanelColor,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Cursor = Cursors.Hand
+            };
+            label.MouseEnter += delegate { label.ForeColor = ZoomBlue; };
+            label.MouseLeave += delegate { label.ForeColor = TextColor; };
+            return label;
         }
 
         private static Button CreateActionButton(string text, int x, int y, int width, int height)
@@ -99,57 +137,100 @@ namespace ZoomMini
                 Size = new Size(width, height),
                 FlatStyle = FlatStyle.Flat,
                 FlatAppearance = { BorderSize = 0 },
-                BackColor = OffColor,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                BackColor = ButtonOff,
+                ForeColor = TextColor,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
                 UseVisualStyleBackColor = false,
                 TabStop = false,
                 Cursor = Cursors.Hand
             };
         }
 
-        private static LinkLabel CreateLink(string text, int x, int y, int width)
+        private void DragWindow(object sender, MouseEventArgs e)
         {
-            return new LinkLabel
+            if (e.Button != MouseButtons.Left) return;
+            ReleaseCapture();
+            SendMessage(Handle, 0xA1, new IntPtr(2), IntPtr.Zero);
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        private void CheckZoomProcess()
+        {
+            bool running;
+            try
             {
-                Text = text,
-                Location = new Point(x, y),
-                Size = new Size(width, 20),
-                LinkColor = LinkColor,
-                ActiveLinkColor = Color.White,
-                VisitedLinkColor = LinkColor,
-                BackColor = WindowColor,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-                TextAlign = ContentAlignment.MiddleCenter,
-                LinkBehavior = LinkBehavior.HoverUnderline
-            };
+                Process[] processes = Process.GetProcessesByName("Zoom");
+                running = processes.Length > 0;
+                foreach (Process process in processes) process.Dispose();
+            }
+            catch
+            {
+                running = false;
+            }
+
+            if (running == _zoomRunning) return;
+
+            _zoomRunning = running;
+            _micButton.Enabled = running;
+            _muteAllButton.Enabled = running;
+            _cameraButton.Enabled = running;
+
+            if (running)
+            {
+                _statusLabel.Text = "Đã phát hiện Zoom • Sẵn sàng";
+                _statusLabel.ForeColor = Color.FromArgb(90, 190, 255);
+            }
+            else
+            {
+                _statusLabel.Text = "Chưa phát hiện Zoom đang chạy";
+                _statusLabel.ForeColor = MutedText;
+                _micOn = false;
+                _cameraOn = false;
+                _muteAllPressed = false;
+            }
+
+            UpdateToggleButtons();
+            UpdateMuteAllButton();
+        }
+
+        private bool CanSendShortcut()
+        {
+            CheckZoomProcess();
+            if (_zoomRunning) return true;
+            _statusLabel.Text = "Hãy mở Zoom trước";
+            return false;
         }
 
         private void MicButton_Click(object sender, EventArgs e)
         {
+            if (!CanSendShortcut()) return;
             SendZoomShortcut('A');
             _micOn = !_micOn;
             UpdateToggleButtons();
-            ShowNotice("Đã gửi Alt + A đến Zoom.");
+            _statusLabel.Text = "Đã gửi phím tắt MIC (Alt + A)";
         }
 
         private void CameraButton_Click(object sender, EventArgs e)
         {
+            if (!CanSendShortcut()) return;
             SendZoomShortcut('V');
             _cameraOn = !_cameraOn;
             UpdateToggleButtons();
-            ShowNotice("Đã gửi Alt + V đến Zoom.");
+            _statusLabel.Text = "Đã gửi phím tắt CAMERA (Alt + V)";
         }
 
         private void MuteAllButton_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Left || _muteAllPressed)
-                return;
-
+            if (e.Button != MouseButtons.Left || _muteAllPressed || !CanSendShortcut()) return;
             _muteAllPressed = true;
             UpdateMuteAllButton();
             SendZoomShortcut('M');
-            ShowNotice("Đã gửi Alt + M. Cần quyền Host/Co-host.");
+            _statusLabel.Text = "Đã gửi Mute All (Alt + M)";
         }
 
         private void MuteAllButton_MouseUp(object sender, MouseEventArgs e)
@@ -160,7 +241,7 @@ namespace ZoomMini
 
         private void MuteAllButton_MouseCaptureChanged(object sender, EventArgs e)
         {
-            if (! _muteAllButton.Capture)
+            if (!_muteAllButton.Capture)
             {
                 _muteAllPressed = false;
                 UpdateMuteAllButton();
@@ -169,27 +250,18 @@ namespace ZoomMini
 
         private void UpdateToggleButtons()
         {
-            _micButton.BackColor = _micOn ? OnColor : OffColor;
-            _cameraButton.BackColor = _cameraOn ? OnColor : OffColor;
+            _micButton.BackColor = !_zoomRunning ? DisabledColor : (_micOn ? ZoomBlue : ButtonOff);
+            _cameraButton.BackColor = !_zoomRunning ? DisabledColor : (_cameraOn ? ZoomBlue : ButtonOff);
         }
 
         private void UpdateMuteAllButton()
         {
-            _muteAllButton.BackColor = _muteAllPressed ? OnColor : OffColor;
-        }
-
-        private void ShowNotice(string message)
-        {
-            _noticeTimer.Stop();
-            _noticeLabel.Text = message;
-            _noticeTimer.Start();
+            _muteAllButton.BackColor = !_zoomRunning ? DisabledColor : (_muteAllPressed ? ZoomBlue : ButtonOff);
         }
 
         private static void SendZoomShortcut(char key)
         {
             byte virtualKey = (byte)char.ToUpperInvariant(key);
-
-            // Sends Alt + key once. Zoom must have Global Shortcut enabled.
             keybd_event(VkMenu, 0, 0, UIntPtr.Zero);
             keybd_event(virtualKey, 0, 0, UIntPtr.Zero);
             keybd_event(virtualKey, 0, KeyUp, UIntPtr.Zero);
@@ -198,7 +270,8 @@ namespace ZoomMini
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
-            _noticeTimer.Dispose();
+            _zoomCheckTimer.Stop();
+            _zoomCheckTimer.Dispose();
             base.OnFormClosed(e);
         }
     }
