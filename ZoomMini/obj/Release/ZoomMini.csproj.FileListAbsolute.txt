@@ -1,0 +1,6 @@
+E:\ZoomControl\ZoomTools\ZoomMini\bin\Release\ZoomMini.exe
+E:\ZoomControl\ZoomTools\ZoomMini\bin\Release\ZoomMini.pdb
+E:\ZoomControl\ZoomTools\ZoomMini\obj\Release\ZoomMini.csproj.AssemblyReference.cache
+E:\ZoomControl\ZoomTools\ZoomMini\obj\Release\ZoomMini.csproj.CoreCompileInputs.cache
+E:\ZoomControl\ZoomTools\ZoomMini\obj\Release\ZoomMini.exe
+E:\ZoomControl\ZoomTools\ZoomMini\obj\Release\ZoomMini.pdb
