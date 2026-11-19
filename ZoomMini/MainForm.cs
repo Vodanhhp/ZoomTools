@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Windows.Automation;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ZoomMini
 {
@@ -25,6 +27,7 @@ namespace ZoomMini
         private readonly Timer _uiStateTimer;
         private bool? _detectedMicOn;
         private bool? _detectedCameraOn;
+        private int _readingUiState;
 
         private bool _micOn;
         private bool _cameraOn;
@@ -116,7 +119,7 @@ namespace ZoomMini
             CheckZoomProcess();
             _zoomCheckTimer.Start();
 
-            _uiStateTimer = new Timer { Interval = 1500 };
+            _uiStateTimer = new Timer { Interval = 2500 };
             _uiStateTimer.Tick += delegate { ReadZoomButtonStates(); };
             _uiStateTimer.Start();
 
@@ -230,87 +233,103 @@ namespace ZoomMini
         }
 
 
-        // Experimental: read accessible button names exposed by the Zoom desktop UI.
-        // A null result means Zoom did not expose a recognizable state; never guess.
+        // Experimental: inspect only Zoom's own main window, never the whole Windows desktop.
+        // Run UI Automation in the background so a slow Zoom accessibility provider cannot freeze this app.
         private void ReadZoomButtonStates()
         {
-            if (!_zoomRunning) return;
+            if (!_zoomRunning || Interlocked.Exchange(ref _readingUiState, 1) == 1)
+                return;
 
-            bool? micOn = null;
-            bool? cameraOn = null;
-
-            try
+            Task.Run(delegate
             {
-                AutomationElement root = AutomationElement.RootElement;
-                AutomationElementCollection buttons = root.FindAll(
-                    TreeScope.Descendants,
-                    new AndCondition(
-                        new PropertyCondition(AutomationElement.ProcessIdProperty, GetZoomProcessId()),
-                        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)));
+                bool? micOn = null;
+                bool? cameraOn = null;
 
-                foreach (AutomationElement button in buttons)
+                try
                 {
-                    string name = button.Current.Name;
-                    if (string.IsNullOrWhiteSpace(name)) continue;
+                    Process[] processes = Process.GetProcessesByName("Zoom");
+                    foreach (Process process in processes)
+                    {
+                        try
+                        {
+                            IntPtr window = process.MainWindowHandle;
+                            if (window == IntPtr.Zero) continue;
 
-                    string value = name.Trim().ToLowerInvariant();
+                            AutomationElement zoomWindow = AutomationElement.FromHandle(window);
+                            AutomationElementCollection buttons = zoomWindow.FindAll(
+                                TreeScope.Descendants,
+                                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button));
 
-                    if (micOn == null &&
-                        (value.Contains("unmute my audio") || value.Contains("unmute audio") ||
-                         value.Contains("unmute microphone") || value == "unmute"))
-                        micOn = false;
-                    else if (micOn == null &&
-                        (value.Contains("mute my audio") || value.Contains("mute audio") ||
-                         value.Contains("mute microphone") || value == "mute"))
-                        micOn = true;
+                            foreach (AutomationElement button in buttons)
+                            {
+                                string name = button.Current.Name;
+                                if (string.IsNullOrWhiteSpace(name)) continue;
 
-                    if (cameraOn == null &&
-                        (value.Contains("stop video") || value.Contains("turn off video") ||
-                         value.Contains("stop my video")))
-                        cameraOn = true;
-                    else if (cameraOn == null &&
-                        (value.Contains("start video") || value.Contains("turn on video") ||
-                         value.Contains("start my video")))
-                        cameraOn = false;
+                                string value = name.Trim().ToLowerInvariant();
+
+                                if (micOn == null &&
+                                    (value.Contains("unmute my audio") || value.Contains("unmute audio") ||
+                                     value.Contains("unmute microphone") || value == "unmute"))
+                                    micOn = false;
+                                else if (micOn == null &&
+                                    (value.Contains("mute my audio") || value.Contains("mute audio") ||
+                                     value.Contains("mute microphone") || value == "mute"))
+                                    micOn = true;
+
+                                if (cameraOn == null &&
+                                    (value.Contains("stop video") || value.Contains("turn off video") ||
+                                     value.Contains("stop my video")))
+                                    cameraOn = true;
+                                else if (cameraOn == null &&
+                                    (value.Contains("start video") || value.Contains("turn on video") ||
+                                     value.Contains("start my video")))
+                                    cameraOn = false;
+                            }
+
+                            if (micOn.HasValue && cameraOn.HasValue) break;
+                        }
+                        catch
+                        {
+                            // Ignore inaccessible Zoom helper processes/windows.
+                        }
+                        finally
+                        {
+                            process.Dispose();
+                        }
+                    }
+                }
+                catch
+                {
+                    // Accessibility can be unavailable while Zoom is starting or closing.
                 }
 
-                if (micOn.HasValue)
+                try
                 {
-                    _detectedMicOn = micOn;
-                    _micOn = micOn.Value;
-                }
-                if (cameraOn.HasValue)
-                {
-                    _detectedCameraOn = cameraOn;
-                    _cameraOn = cameraOn.Value;
-                }
+                    if (!IsDisposed && IsHandleCreated)
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            if (micOn.HasValue) _micOn = micOn.Value;
+                            if (cameraOn.HasValue) _cameraOn = cameraOn.Value;
 
-                UpdateToggleButtons();
-                if (micOn.HasValue || cameraOn.HasValue)
-                {
-                    _statusLabel.Text = "Đã đọc trạng thái từ giao diện Zoom";
-                    _statusLabel.ForeColor = Color.FromArgb(90, 190, 255);
+                            if (micOn.HasValue || cameraOn.HasValue)
+                            {
+                                UpdateToggleButtons();
+                                _statusLabel.Text = "Đã cập nhật trạng thái từ Zoom";
+                                _statusLabel.ForeColor = Color.FromArgb(90, 190, 255);
+                            }
+                        });
+                    }
                 }
-            }
-            catch
-            {
-                // Zoom may not expose accessibility information in this window/version.
-            }
-        }
-
-        private static int GetZoomProcessId()
-        {
-            try
-            {
-                Process[] processes = Process.GetProcessesByName("Zoom");
-                foreach (Process process in processes)
+                catch
                 {
-                    try { return process.Id; }
-                    finally { process.Dispose(); }
+                    // The form may be closing.
                 }
-            }
-            catch { }
-            return -1;
+                finally
+                {
+                    Interlocked.Exchange(ref _readingUiState, 0);
+                }
+            });
         }
 
         private bool CanSendShortcut()
