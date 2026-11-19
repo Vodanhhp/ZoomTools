@@ -253,13 +253,18 @@ namespace ZoomMini
             _muteAllPressed = true;
             UpdateMuteAllButton();
             SendZoomShortcut('M');
-            _statusLabel.Text = "MUTE ALL: Cần quyền Host/Co-host";
+            _statusLabel.Text = "Đã gửi phím tắt MUTE ALL (Alt + M)";
         }
 
         private void MuteAllButton_MouseUp(object sender, MouseEventArgs e)
         {
             _muteAllPressed = false;
             UpdateMuteAllButton();
+            if (_zoomRunning)
+            {
+                _statusLabel.Text = "Đã phát hiện Zoom • Sẵn sàng";
+                _statusLabel.ForeColor = Color.FromArgb(90, 190, 255);
+            }
         }
 
         private void MuteAllButton_MouseCaptureChanged(object sender, EventArgs e)
