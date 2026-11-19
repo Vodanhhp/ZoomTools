@@ -26,6 +26,7 @@ namespace ZoomMini
         private bool _cameraOn;
         private bool _muteAllPressed;
         private bool _zoomRunning;
+        private bool _zoomStateInitialized;
 
         private static readonly Color BackgroundColor = Color.FromArgb(8, 12, 20);
         private static readonly Color PanelColor = Color.FromArgb(13, 25, 42);
@@ -173,8 +174,9 @@ namespace ZoomMini
                 running = false;
             }
 
-            if (running == _zoomRunning) return;
+            if (_zoomStateInitialized && running == _zoomRunning) return;
 
+            _zoomStateInitialized = true;
             _zoomRunning = running;
             _micButton.Enabled = running;
             _muteAllButton.Enabled = running;
