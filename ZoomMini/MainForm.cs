@@ -64,11 +64,15 @@ namespace ZoomMini
                 Font = new Font("Segoe UI", 8F, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleLeft
             };
+            Label helpLabel = CreateWindowLabel("Help", 143, 3);
+            helpLabel.Size = new Size(34, 18);
+            helpLabel.Font = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            helpLabel.Click += HelpLabel_Click;
             _minimizeLabel = CreateWindowLabel("—", 181, 2);
             _closeLabel = CreateWindowLabel("×", 204, 1);
             _minimizeLabel.Click += delegate { WindowState = FormWindowState.Minimized; };
             _closeLabel.Click += delegate { Close(); };
-            topPanel.Controls.Add(appName);
+            topPanel.Controls.Add(appName);\n            topPanel.Controls.Add(helpLabel);
             topPanel.Controls.Add(_minimizeLabel);
             topPanel.Controls.Add(_closeLabel);
             topPanel.MouseDown += DragWindow;
@@ -145,6 +149,22 @@ namespace ZoomMini
                 TabStop = false,
                 Cursor = Cursors.Hand
             };
+        }
+
+        private void HelpLabel_Click(object sender, EventArgs e)
+        {
+            string helpText =
+                "CÁCH BẬT PHÍM TẮT ZOOM\\n\\n" +
+                "1. Mở Zoom Workplace và đăng nhập.\\n" +
+                "2. Nhấn ảnh đại diện hoặc biểu tượng bánh răng Settings.\\n" +
+                "3. Chọn Settings → Keyboard Shortcuts.\\n" +
+                "4. Tìm các phím tắt Mute/Unmute My Audio (Alt + A), Mute All (Alt + M) và Start/Stop Video (Alt + V).\\n" +
+                "5. Đánh dấu tùy chọn Global Shortcut cho từng phím tắt nếu Zoom hiển thị tùy chọn này.\\n\\n" +
+                "Lưu ý: Mute All yêu cầu quyền Host/Co-host. Tên mục có thể khác đôi chút tùy phiên bản Zoom.\\n\\n" +
+                "Liên hệ: tuanluongpham@gmail.com";
+
+            MessageBox.Show(this, helpText, "Help - Công cụ Zoom",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void DragWindow(object sender, MouseEventArgs e)
