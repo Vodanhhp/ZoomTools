@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using System.Windows.Automation;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace ZoomMini
 {
@@ -192,6 +193,17 @@ namespace ZoomMini
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
         private void CheckZoomProcess()
         {
             bool running;
@@ -233,8 +245,8 @@ namespace ZoomMini
         }
 
 
-        // Experimental: inspect only Zoom's own main window, never the whole Windows desktop.
-        // Run UI Automation in the background so a slow Zoom accessibility provider cannot freeze this app.
+        // Inspect only top-level windows owned by Zoom. Meeting controls identify an active meeting.
+        // UI Automation runs in the background so it cannot freeze this app's UI.
         private void ReadZoomButtonStates()
         {
             if (!_zoomRunning || Interlocked.Exchange(ref _readingUiState, 1) == 1)
@@ -244,21 +256,45 @@ namespace ZoomMini
             {
                 bool? micOn = null;
                 bool? cameraOn = null;
+                bool meetingFound = false;
 
                 try
                 {
+                    HashSet<int> zoomProcessIds = new HashSet<int>();
                     Process[] processes = Process.GetProcessesByName("Zoom");
                     foreach (Process process in processes)
                     {
+                        try { zoomProcessIds.Add(process.Id); }
+                        catch { }
+                        finally { process.Dispose(); }
+                    }
+
+                    List<IntPtr> zoomWindows = new List<IntPtr>();
+                    EnumWindows(delegate (IntPtr hWnd, IntPtr lParam)
+                    {
+                        if (!IsWindowVisible(hWnd)) return true;
+
+                        uint processId;
+                        GetWindowThreadProcessId(hWnd, out processId);
+                        if (zoomProcessIds.Contains((int)processId))
+                            zoomWindows.Add(hWnd);
+
+                        return true;
+                    }, IntPtr.Zero);
+
+                    foreach (IntPtr window in zoomWindows)
+                    {
                         try
                         {
-                            IntPtr window = process.MainWindowHandle;
-                            if (window == IntPtr.Zero) continue;
-
                             AutomationElement zoomWindow = AutomationElement.FromHandle(window);
+                            if (zoomWindow == null) continue;
+
                             AutomationElementCollection buttons = zoomWindow.FindAll(
                                 TreeScope.Descendants,
                                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button));
+
+                            bool? windowMicOn = null;
+                            bool? windowCameraOn = null;
 
                             foreach (AutomationElement button in buttons)
                             {
@@ -267,40 +303,47 @@ namespace ZoomMini
 
                                 string value = name.Trim().ToLowerInvariant();
 
-                                if (micOn == null &&
-                                    (value.Contains("unmute my audio") || value.Contains("unmute audio") ||
-                                     value.Contains("unmute microphone") || value == "unmute"))
-                                    micOn = false;
-                                else if (micOn == null &&
-                                    (value.Contains("mute my audio") || value.Contains("mute audio") ||
-                                     value.Contains("mute microphone") || value == "mute"))
-                                    micOn = true;
+                                // Ignore host controls for muting other participants.
+                                bool isMuteAllControl = value.Contains("mute all") ||
+                                                        value.Contains("mute participants");
+                                // Check "unmute" before "mute" because the former contains the latter.
+                                if (windowMicOn == null && !isMuteAllControl)
+                                {
+                                    if (value.Contains("unmute") || value.Contains("enable audio"))
+                                        windowMicOn = false;
+                                    else if (value.Contains("mute") || value.Contains("disable audio"))
+                                        windowMicOn = true;
+                                }
 
-                                if (cameraOn == null &&
-                                    (value.Contains("stop video") || value.Contains("turn off video") ||
-                                     value.Contains("stop my video")))
-                                    cameraOn = true;
-                                else if (cameraOn == null &&
-                                    (value.Contains("start video") || value.Contains("turn on video") ||
-                                     value.Contains("start my video")))
-                                    cameraOn = false;
+                                if (windowCameraOn == null)
+                                {
+                                    if (value.Contains("stop video") || value.Contains("turn off video") ||
+                                        value.Contains("stop my video") || value.Contains("stop camera"))
+                                        windowCameraOn = true;
+                                    else if (value.Contains("start video") || value.Contains("turn on video") ||
+                                             value.Contains("start my video") || value.Contains("start camera"))
+                                        windowCameraOn = false;
+                                }
                             }
 
-                            if (micOn.HasValue && cameraOn.HasValue) break;
+                            // A visible microphone control is the strongest indication that this is a meeting window.
+                            if (windowMicOn.HasValue || windowCameraOn.HasValue)
+                            {
+                                meetingFound = true;
+                                if (windowMicOn.HasValue) micOn = windowMicOn;
+                                if (windowCameraOn.HasValue) cameraOn = windowCameraOn;
+                                if (micOn.HasValue && cameraOn.HasValue) break;
+                            }
                         }
                         catch
                         {
-                            // Ignore inaccessible Zoom helper processes/windows.
-                        }
-                        finally
-                        {
-                            process.Dispose();
+                            // Ignore inaccessible or closing Zoom windows.
                         }
                     }
                 }
                 catch
                 {
-                    // Accessibility can be unavailable while Zoom is starting or closing.
+                    // UI Automation can be unavailable while Zoom is starting or closing.
                 }
 
                 try
@@ -309,13 +352,12 @@ namespace ZoomMini
                     {
                         BeginInvoke((MethodInvoker)delegate
                         {
-                            if (micOn.HasValue) _micOn = micOn.Value;
-                            if (cameraOn.HasValue) _cameraOn = cameraOn.Value;
-
-                            if (micOn.HasValue || cameraOn.HasValue)
+                            if (meetingFound)
                             {
+                                if (micOn.HasValue) _micOn = micOn.Value;
+                                if (cameraOn.HasValue) _cameraOn = cameraOn.Value;
                                 UpdateToggleButtons();
-                                _statusLabel.Text = "Đã cập nhật trạng thái từ Zoom";
+                                _statusLabel.Text = "Đã đọc trạng thái cuộc họp";
                                 _statusLabel.ForeColor = Color.FromArgb(90, 190, 255);
                             }
                         });
