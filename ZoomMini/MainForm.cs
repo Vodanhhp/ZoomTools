@@ -23,8 +23,8 @@ namespace ZoomMini
         private readonly Label _statusLabel;
         private readonly Label _minimizeLabel;
         private readonly Label _closeLabel;
-        private readonly Timer _zoomCheckTimer;
-        private readonly Timer _uiStateTimer;
+        private readonly System.Windows.Forms.Timer _zoomCheckTimer;
+        private readonly System.Windows.Forms.Timer _uiStateTimer;
         private bool? _detectedMicOn;
         private bool? _detectedCameraOn;
         private int _readingUiState;
@@ -114,12 +114,12 @@ namespace ZoomMini
             Controls.Add(_cameraButton);
             Controls.Add(_statusLabel);
 
-            _zoomCheckTimer = new Timer { Interval = 1000 };
+            _zoomCheckTimer = new System.Windows.Forms.Timer { Interval = 1000 };
             _zoomCheckTimer.Tick += delegate { CheckZoomProcess(); };
             CheckZoomProcess();
             _zoomCheckTimer.Start();
 
-            _uiStateTimer = new Timer { Interval = 2500 };
+            _uiStateTimer = new System.Windows.Forms.Timer { Interval = 2500 };
             _uiStateTimer.Tick += delegate { ReadZoomButtonStates(); };
             _uiStateTimer.Start();
 
