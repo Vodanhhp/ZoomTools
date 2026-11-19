@@ -161,8 +161,7 @@ namespace ZoomMini
                 "3. Chọn Settings → Keyboard Shortcuts.\n" +
                 "4. Tìm các phím tắt Mute/Unmute My Audio (Alt + A), Mute All (Alt + M) và Start/Stop Video (Alt + V).\n" +
                 "5. Đánh dấu tùy chọn Global Shortcut cho từng phím tắt nếu Zoom hiển thị tùy chọn này.\n\n" +
-                "Lưu ý: Trước khi nhấn MUTE ALL, cô giáo phải đăng nhập Zoom và đang là Host (chủ trì) hoặc Co-host (đồng chủ trì) của cuộc họp. Chỉ đăng nhập tài khoản Zoom không có nghĩa là có quyền Host.\n" +
-                "Tên mục có thể khác đôi chút tùy phiên bản Zoom.\n\n" +
+                "Lưu ý: Mute All yêu cầu quyền Host/Co-host. Tên mục có thể khác đôi chút tùy phiên bản Zoom.\n\n" +
                 "Liên hệ: tuanluongpham@gmail.com";
 
             MessageBox.Show(this, helpText, "Help - Công cụ Zoom",
@@ -254,7 +253,7 @@ namespace ZoomMini
             _muteAllPressed = true;
             UpdateMuteAllButton();
             SendZoomShortcut('M');
-            _statusLabel.Text = "Đã gửi Mute All (Alt + M)";
+            _statusLabel.Text = "MUTE ALL: Cần quyền Host/Co-host";
         }
 
         private void MuteAllButton_MouseUp(object sender, MouseEventArgs e)
