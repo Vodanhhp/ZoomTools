@@ -303,8 +303,11 @@ namespace ZoomMini
 
                                 string value = name.Trim().ToLowerInvariant();
 
+                                // Ignore host controls for muting other participants.
+                                bool isMuteAllControl = value.Contains("mute all") ||
+                                                        value.Contains("mute participants");
                                 // Check "unmute" before "mute" because the former contains the latter.
-                                if (windowMicOn == null)
+                                if (windowMicOn == null && !isMuteAllControl)
                                 {
                                     if (value.Contains("unmute") || value.Contains("enable audio"))
                                         windowMicOn = false;
