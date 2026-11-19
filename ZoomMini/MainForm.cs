@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Windows.Automation;
 
 namespace ZoomMini
 {
@@ -21,6 +22,9 @@ namespace ZoomMini
         private readonly Label _minimizeLabel;
         private readonly Label _closeLabel;
         private readonly Timer _zoomCheckTimer;
+        private readonly Timer _uiStateTimer;
+        private bool? _detectedMicOn;
+        private bool? _detectedCameraOn;
 
         private bool _micOn;
         private bool _cameraOn;
@@ -111,6 +115,10 @@ namespace ZoomMini
             _zoomCheckTimer.Tick += delegate { CheckZoomProcess(); };
             CheckZoomProcess();
             _zoomCheckTimer.Start();
+
+            _uiStateTimer = new Timer { Interval = 1500 };
+            _uiStateTimer.Tick += delegate { ReadZoomButtonStates(); };
+            _uiStateTimer.Start();
 
             UpdateToggleButtons();
             UpdateMuteAllButton();
@@ -221,6 +229,90 @@ namespace ZoomMini
             UpdateMuteAllButton();
         }
 
+
+        // Experimental: read accessible button names exposed by the Zoom desktop UI.
+        // A null result means Zoom did not expose a recognizable state; never guess.
+        private void ReadZoomButtonStates()
+        {
+            if (!_zoomRunning) return;
+
+            bool? micOn = null;
+            bool? cameraOn = null;
+
+            try
+            {
+                AutomationElement root = AutomationElement.RootElement;
+                AutomationElementCollection buttons = root.FindAll(
+                    TreeScope.Descendants,
+                    new AndCondition(
+                        new PropertyCondition(AutomationElement.ProcessIdProperty, GetZoomProcessId()),
+                        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)));
+
+                foreach (AutomationElement button in buttons)
+                {
+                    string name = button.Current.Name;
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+
+                    string value = name.Trim().ToLowerInvariant();
+
+                    if (micOn == null &&
+                        (value.Contains("unmute my audio") || value.Contains("unmute audio") ||
+                         value.Contains("unmute microphone") || value == "unmute"))
+                        micOn = false;
+                    else if (micOn == null &&
+                        (value.Contains("mute my audio") || value.Contains("mute audio") ||
+                         value.Contains("mute microphone") || value == "mute"))
+                        micOn = true;
+
+                    if (cameraOn == null &&
+                        (value.Contains("stop video") || value.Contains("turn off video") ||
+                         value.Contains("stop my video")))
+                        cameraOn = true;
+                    else if (cameraOn == null &&
+                        (value.Contains("start video") || value.Contains("turn on video") ||
+                         value.Contains("start my video")))
+                        cameraOn = false;
+                }
+
+                if (micOn.HasValue)
+                {
+                    _detectedMicOn = micOn;
+                    _micOn = micOn.Value;
+                }
+                if (cameraOn.HasValue)
+                {
+                    _detectedCameraOn = cameraOn;
+                    _cameraOn = cameraOn.Value;
+                }
+
+                UpdateToggleButtons();
+                if (micOn.HasValue || cameraOn.HasValue)
+                {
+                    _statusLabel.Text = "Đã đọc trạng thái từ giao diện Zoom";
+                    _statusLabel.ForeColor = Color.FromArgb(90, 190, 255);
+                }
+            }
+            catch
+            {
+                // Zoom may not expose accessibility information in this window/version.
+            }
+        }
+
+        private static int GetZoomProcessId()
+        {
+            try
+            {
+                Process[] processes = Process.GetProcessesByName("Zoom");
+                foreach (Process process in processes)
+                {
+                    try { return process.Id; }
+                    finally { process.Dispose(); }
+                }
+            }
+            catch { }
+            return -1;
+        }
+
         private bool CanSendShortcut()
         {
             CheckZoomProcess();
@@ -300,6 +392,8 @@ namespace ZoomMini
         {
             _zoomCheckTimer.Stop();
             _zoomCheckTimer.Dispose();
+            _uiStateTimer.Stop();
+            _uiStateTimer.Dispose();
             base.OnFormClosed(e);
         }
     }
